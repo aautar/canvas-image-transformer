@@ -1,0 +1,9 @@
+{
+  "name": "canvas-image-transformer",
+  "version": "1.0.0",
+  "description": "Small front-end component for transformation of Image objects",
+  "main": "src/main.js",
+  "repository": "https://github.com/aautar/canvas-image-transformer.git",
+  "author": "Avishkar Autar <aautar@digital-radiation.com>",
+  "license": "MIT"
+}
