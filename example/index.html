@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Test</title>
+    </head>
+
+    <script src="../src/main.js" type="text/javascript"></script>
+    <script type="text/javascript">
+
+        var img = new Image();
+        img.onload = function() {
+            var imgDataUri = window.CanvasImageTransformer.resize(img, 32);
+
+            var docImg = document.getElementById('testImage');
+            docImg.src = imgDataUri;
+        };
+        
+        img.src = "large.jpg";
+
+
+    </script>
+
+
+    <body>
+        <img id="testImage" src="" />
+    </body>
+
+</html>
+
