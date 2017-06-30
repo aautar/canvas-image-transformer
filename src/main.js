@@ -78,6 +78,30 @@ window.CanvasImageTransformer =  (function () {
 
             canvasCtx.putImageData(pixels, 0, 0);
             return canvas;
-        }        
+        },
+
+        /**
+         * @param {Canvas} canvas
+         * @param {Map} 
+         */
+        computeColorFrequencyMap: function(canvas) {
+
+            var colorFrequencyMap = new Map();
+
+            var canvasCtx = canvas.getContext('2d');
+            var pixels = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+
+            for(var i=0; i<pixels.data.length; i+=4) {
+                var rgba = (pixels.data[i] << 24) + (pixels.data[i + 1] << 16) + (pixels.data[i + 2] << 8) + (pixels.data[i + 3]);
+                if(!colorFrequencyMap.has(rgba)) {
+                    colorFrequencyMap.set(rgba, 1);
+                } else {
+                    colorFrequencyMap.set(rgba, colorFrequencyMap.get(rgba) + 1);
+                }
+            }
+
+            return colorFrequencyMap;
+        },
+
     };
 })();
