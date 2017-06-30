@@ -1,5 +1,34 @@
 window.CanvasImageTransformer =  (function () {
+
+    var _colorToRGBA = function(color) {
+        return [
+            color >> 24 & 0xFF,
+            color >> 16 & 0xFF,
+            color >> 8 & 0xFF,
+            color & 0xFF
+        ];
+    };
+
+    var _rgbaToColor = function(r, g, b, a) {
+        return (r << 24) + (g << 16) + (b << 8) + a;
+    };
+
     return {
+
+        /**
+         * @param {Number} color
+         * @returns {Array}
+         */
+        colorToRGBA: _colorToRGBA,
+
+        /**
+         * @param {Number} r
+         * @param {Number} g
+         * @param {Number} b
+         * @param {Number} a
+         * @returns {Number}
+         */
+        rgbaToColor: _rgbaToColor,
 
         /**
         *
@@ -92,7 +121,14 @@ window.CanvasImageTransformer =  (function () {
             var pixels = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 
             for(var i=0; i<pixels.data.length; i+=4) {
-                var rgba = (pixels.data[i] << 24) + (pixels.data[i + 1] << 16) + (pixels.data[i + 2] << 8) + (pixels.data[i + 3]);
+                
+                var rgba = _rgbaToColor(
+                    pixels.data[i],
+                    pixels.data[i+1],
+                    pixels.data[i+2],
+                    pixels.data[i+3]
+                );
+
                 if(!colorFrequencyMap.has(rgba)) {
                     colorFrequencyMap.set(rgba, 1);
                 } else {
