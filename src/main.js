@@ -74,7 +74,6 @@ window.CanvasImageTransformer =  (function () {
                 pixels.data[i] = grayPixel;
                 pixels.data[i + 1] = grayPixel;
                 pixels.data[i + 2] = grayPixel;
-                pixels.data[i + 3] = 255;
             }
 
             canvasCtx.putImageData(pixels, 0, 0);
