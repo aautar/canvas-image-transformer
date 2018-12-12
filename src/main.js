@@ -1,4 +1,4 @@
-window.CanvasImageTransformer =  (function () {
+const CanvasImageTransformer =  (function () {
 
     var _colorToRGBA = function(color) {
         return [
@@ -141,3 +141,7 @@ window.CanvasImageTransformer =  (function () {
 
     };
 })();
+
+if(typeof module !== 'undefined' && module.exports) {
+    module.exports = CanvasImageTransformer;
+}
