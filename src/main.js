@@ -33,9 +33,9 @@ const CanvasImageTransformer =  (function () {
         /**
         *
         * @param {Image} img
-        * @param {int} newWidth
-        * @param {int} newHeight
-        * @param {bool} proportionalScale
+        * @param {Number} newWidth
+        * @param {Number} newHeight
+        * @param {Boolean} proportionalScale
         * @returns {Canvas}
         */
         imageToCanvas: function(img, newWidth, newHeight, proportionalScale) {
