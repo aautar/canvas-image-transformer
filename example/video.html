@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Test</title>
+    </head>
+
+    <script src="../src/main.js" type="text/javascript"></script>
+
+    <body>
+        <img id="testImage" src="" />
+
+
+        <script type="text/javascript">
+
+            /**
+                CanvasImageTransformer.imageToCanvas() example with video element
+                Also showing how to use method to perform resize transformation
+            */
+            const video = document.createElement('video');
+
+            const videoSource = document.createElement('source');
+            videoSource.setAttribute('type', 'video/mp4');
+            videoSource.setAttribute('src', 'lego-small.mp4');
+            video.appendChild(videoSource);
+            
+            video.onloadeddata = function() {
+                setTimeout(function() {
+                    const imgOnCanvas = CanvasImageTransformer.videoFrameToCanvas(video, 200, 200, true);
+                    const docImg = document.getElementById('testImage');
+                    docImg.src = imgOnCanvas.toDataURL();
+                }, 200); // hacky, but no event to know when the frame has actually been rendered
+            };
+    
+            // element actually needs to be rendered in the document
+            document.body.appendChild(video);
+    
+        </script>
+
+    </body>
+
+</html>
+

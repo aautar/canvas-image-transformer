@@ -32,14 +32,13 @@ const CanvasImageTransformer =  (function () {
 
         /**
         *
-        * @param {Image} img
+        * @param {HTMLImageElement} img
         * @param {Number} newWidth
         * @param {Number} newHeight
         * @param {Boolean} proportionalScale
         * @returns {Canvas}
         */
         imageToCanvas: function(img, newWidth, newHeight, proportionalScale) {
-
             if(proportionalScale) {
                 if(img.width > img.height) {
                     newHeight = newHeight * (img.height / img.width);
@@ -57,6 +56,35 @@ const CanvasImageTransformer =  (function () {
             var canvasCtx = canvas.getContext('2d');
 
             canvasCtx.drawImage(img, 0, 0, newWidth, newHeight);
+            return canvas;
+        },
+
+        /**
+        *
+        * @param {HTMLVideoElement} video
+        * @param {Number} newWidth
+        * @param {Number} newHeight
+        * @param {Boolean} proportionalScale
+        * @returns {Canvas}
+        */
+        videoFrameToCanvas: function(video, newWidth, newHeight, proportionalScale) {
+            if(proportionalScale) {
+                if(video.videoWidth > video.videoHeight) {
+                    newHeight = newHeight * (video.videoHeight / video.videoWidth);
+                }
+                else if(video.height > video.videoWidth) {
+                    newWidth = newWidth * (video.videoWidth / video.videoHeight);
+                }
+                else 
+                {}
+            }
+
+            var canvas = document.createElement('canvas');
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            var canvasCtx = canvas.getContext('2d');
+
+            canvasCtx.drawImage(video, 0, 0, newWidth, newHeight);
             return canvas;
         },
 
