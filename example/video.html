@@ -22,6 +22,7 @@
             videoSource.setAttribute('type', 'video/mp4');
             videoSource.setAttribute('src', 'lego-small.mp4');
             video.appendChild(videoSource);
+            video.currentTime = 2;
             
             video.onloadeddata = function() {
                 setTimeout(function() {

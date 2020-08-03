@@ -90,6 +90,27 @@ const CanvasImageTransformer =  (function () {
 
         /**
          * @param {Canvas} canvas
+         * @param {Array} kernel
+         * @param {Canvas} 
+         */
+        applyKernel: function(canvas, _kernel) {
+            var canvasCtx = canvas.getContext('2d');
+            var pixels = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+
+            /*for(var i=0; i<pixels.data.length; i+=4) {
+                var grayPixel = parseInt(((0.2126*(pixels.data[i]/255.0)) + (0.7152*(pixels.data[i+1]/255.0)) + (0.0722*(pixels.data[i+2]/255.0))) * 255.0);
+
+                pixels.data[i] = grayPixel;
+                pixels.data[i + 1] = grayPixel;
+                pixels.data[i + 2] = grayPixel;
+            }*/
+
+            canvasCtx.putImageData(pixels, 0, 0);
+            return canvas;
+        },        
+
+        /**
+         * @param {Canvas} canvas
          * @param {Canvas} 
          */
         toGrayscale: function(canvas) {
