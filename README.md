@@ -18,3 +18,15 @@ This can be accomplished with the `imageToCanvas(...)` method. With the returned
     const canvas = CanvasImageTransformer.toGrayscale(canvas);
 
 The the `toGrayscale(...)` method will transform each pixel on the Canvas to grayscale. The method returns the `HTMLCanvasElement` object that is passed in.
+
+### Apply a convolution kernel
+
+    const kernelArr = [
+        0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1,
+        0.1, 0.1, 0.1
+    ];
+    
+    const canvas = CanvasImageTransformer.applyKernel(canvas, CanvasImageTransformer.createKernel(kernelArr, 3));
+
+The the `applyKernel(...)` method will [convolve](https://en.wikipedia.org/wiki/Kernel_(image_processing)) each pixel on the Canvas by the given convolution kernel. The method returns the `HTMLCanvasElement` object that is passed in.
