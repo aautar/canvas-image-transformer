@@ -1,6 +1,5 @@
 const CanvasImageTransformer =  (function () {
-
-    var _colorToRGBA = function(color) {
+    const _colorToRGBA = function(color) {
         return [
             color >> 24 & 0xFF,
             color >> 16 & 0xFF,
@@ -9,12 +8,50 @@ const CanvasImageTransformer =  (function () {
         ];
     };
 
-    var _rgbaToColor = function(r, g, b, a) {
+    /**
+     * 
+     * @param {Number} r 
+     * @param {Number} g 
+     * @param {Number} b 
+     * @param {Number} a 
+     * 
+     * @returns {Number}
+     */
+    const _rgbaToColor = function(r, g, b, a) {
         return (r << 24) + (g << 16) + (b << 8) + a;
     };
 
-    return {
+    /**
+     * 
+     * @param {Uint8ClampedArray} _pixelArr 
+     * @param {Number} _width 
+     * @param {Number} _x 
+     * @param {Number} _y 
+     * 
+     * @returns {Array}
+     */
+    const _lookupPixelf = function(_pixelArr, _width, _x, _y) {
+        const idx = (_x + _y * _width) * 4;
+        return [_pixelArr[idx] / 255.0, _pixelArr[idx+1] / 255.0, _pixelArr[idx+2] / 255.0, _pixelArr[idx+3] / 255.0];
+    };
 
+    /**
+     * 
+     * @param {Array} _matrixArray 
+     * @param {Number} _width
+     * @returns {Kernel}
+     */    
+    const Kernel = function(_matrixArray, _width) {
+        this.getMatrixArray = function() {
+            return _matrixArray;
+        };
+
+        this.getWidth = function() {
+            return _width;
+        };
+    };
+
+    return {
         /**
          * @param {Number} color
          * @returns {Array}
@@ -29,6 +66,16 @@ const CanvasImageTransformer =  (function () {
          * @returns {Number}
          */
         rgbaToColor: _rgbaToColor,
+
+        /**
+         * 
+         * @param {Array} matrixArray 
+         * @param {Number} width
+         * @returns {Kernel}
+         */
+        createKernel: function(matrixArray, width) {
+            return new Kernel(matrixArray, width);
+        },
 
         /**
         *
@@ -90,6 +137,59 @@ const CanvasImageTransformer =  (function () {
 
         /**
          * @param {Canvas} canvas
+         * @param {Kernel} kernel
+         * @returns {Canvas}
+         */
+        applyKernel: function(canvas, kernel) {
+            const canvasCtx = canvas.getContext('2d');
+            const srcPixels = (canvasCtx.getImageData(0, 0, canvas.width, canvas.height)).data;
+            const destPixels = new Uint8ClampedArray(canvas.width * canvas.height * 4);
+            const kernelWidth = kernel.getWidth();
+            const kernelMatrixArr = kernel.getMatrixArray();
+
+            for(let y=0; y<canvas.height; y++) {
+                for(let x=0; x<canvas.width; x++) {
+                    let acc = [0,0,0,0];
+
+                    for(let ky=0; ky<kernelWidth; ky++) {
+                        for(let kx = 0; kx<kernelWidth; kx++) {
+                            const kidx = kx + ky*kernelWidth;
+                            const kxRelative = kx - ((kernelWidth-1)/2);
+                            const kyRelative = ky - ((kernelWidth-1)/2);
+
+                            let kPixelX = x + kxRelative;
+                            let kPixelY = y + kyRelative;
+
+                            if(kPixelX < 0 || kPixelY < 0 || kPixelX >= canvas.width || kPixelY >= canvas.height) {
+                                continue;
+                            }
+
+                            const kPixel = _lookupPixelf(srcPixels, canvas.width, kPixelX, kPixelY);
+                            acc[0] += kernelMatrixArr[kidx] * kPixel[0];
+                            acc[1] += kernelMatrixArr[kidx] * kPixel[1];
+                            acc[2] += kernelMatrixArr[kidx] * kPixel[2];
+
+                            if(kxRelative === 0 && kyRelative === 0) {
+                                acc[3] = kPixel[3]; // preserve alpha, i.e. use alpha of center pixel
+                            }
+                        }
+                    }
+
+                    // write pixel
+                    const pidx = (x + y * canvas.width) * 4;
+                    destPixels[pidx + 0] = parseInt(acc[0] * 255.0);
+                    destPixels[pidx + 1] = parseInt(acc[1] * 255.0);
+                    destPixels[pidx + 2] = parseInt(acc[2] * 255.0);
+                    destPixels[pidx + 3] = parseInt(acc[3] * 255.0);
+                }
+            }
+
+            canvasCtx.putImageData(new ImageData(destPixels, canvas.width, canvas.height), 0, 0);
+            return canvas;
+        },        
+
+        /**
+         * @param {Canvas} canvas
          * @param {Canvas} 
          */
         toGrayscale: function(canvas) {
@@ -141,7 +241,6 @@ const CanvasImageTransformer =  (function () {
          * @param {Map} 
          */
         computeColorFrequencyMap: function(canvas) {
-
             var colorFrequencyMap = new Map();
 
             var canvasCtx = canvas.getContext('2d');
