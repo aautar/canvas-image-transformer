@@ -22,19 +22,15 @@
             videoSource.setAttribute('type', 'video/mp4');
             videoSource.setAttribute('src', 'lego-small.mp4');
             video.appendChild(videoSource);
-            video.currentTime = 2;
-            
-            video.onloadeddata = function() {
-                setTimeout(function() {
-                    const imgOnCanvas = CanvasImageTransformer.videoFrameToCanvas(video, 200, 200, true);
-                    const docImg = document.getElementById('testImage');
-                    docImg.src = imgOnCanvas.toDataURL();
-                }, 200); // hacky, but no event to know when the frame has actually been rendered
-            };
-    
-            // element actually needs to be rendered in the document
-            document.body.appendChild(video);
-    
+
+            video.addEventListener('seeked', function(e) {
+                // capture the video frame at the point seeked to
+                const frameOnCanvas = CanvasImageTransformer.videoFrameToCanvas(video, 500, 500, true);
+                document.getElementById('testImage').src = frameOnCanvas.toDataURL();
+            });
+
+            // seek to 2s
+            video.currentTime = 2.0; 
         </script>
 
     </body>
