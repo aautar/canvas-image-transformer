@@ -214,13 +214,17 @@ const CanvasImageTransformer =  (function () {
             const fragmentShaderSrc = `
                 precision mediump float;
 
+                // templatize this portion
                 uniform float uPeriod;
                 uniform float uSceneWidth;
                 uniform float uSceneHeight;
-                uniform sampler2D uSampler;		  
+                uniform sampler2D uSampler;
+                //
+
                 varying vec2 vTextureCoord;
                 
-                void main(void) {               
+                void main(void) {
+                    // this is inject by caller
                     vec4 shiftedSampleLeft = vec4( 0. );
                     vec4 shiftedSampleRight = vec4( 0. );
 
@@ -234,6 +238,7 @@ const CanvasImageTransformer =  (function () {
                     shiftedSampleRight = texture2D( uSampler, ( vTextureCoord + vec2(0.01525, 0) ) );
                 
                     gl_FragColor = src * vec4(1, shiftedSampleLeft.g, 1, 1) * vec4(shiftedSampleRight.r, 1, 1, 1);
+                    //
                 }
             `;
             const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
