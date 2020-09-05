@@ -139,10 +139,18 @@ const CanvasImageTransformer =  (function () {
             const glCanvas = document.createElement('canvas');
             glCanvas.width = srcCanvas.width;
             glCanvas.height = srcCanvas.height;
-            const gl = glCanvas.getContext('webgl');
+            let gl = glCanvas.getContext('webgl2');
+
+            if(!gl) { // fallback to WebGL 1
+                gl = glCanvas.getContext('webgl');
+            }
+
+            if(!gl) { // no WebGL support
+                throw "Browser does not support WebGL"
+            }
 
             gl.viewport(0, 0, srcCanvas.width, srcCanvas.height);
-            gl.clearColor(1.0, 0.0, 0.0, 1.0);
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
             gl.clear(gl.COLOR_BUFFER_BIT);
 
             const mdl = {};
@@ -190,10 +198,8 @@ const CanvasImageTransformer =  (function () {
             const vertexShaderSrc = `
                 attribute vec3 aVertexPosition;
                 attribute vec2 aTextureCoord;
-                
                 uniform mat4 uMVMatrix;
                 uniform mat4 uPMatrix;
-                
                 varying vec2 vTextureCoord;
                 
                 void main(void) {
@@ -217,11 +223,10 @@ const CanvasImageTransformer =  (function () {
                 void main(void) {               
                     vec4 shiftedSampleLeft = vec4( 0. );
                     vec4 shiftedSampleRight = vec4( 0. );
-                
+
                     float blurSampleOffsetScale = 2.1;
                     float px = (1.0 / uSceneWidth) * blurSampleOffsetScale;
                     float py = (1.0 / uSceneHeight) * blurSampleOffsetScale;
-                    // need depth info
                 
                     vec4 src = texture2D( uSampler, ( vTextureCoord ) );
                 
@@ -233,7 +238,7 @@ const CanvasImageTransformer =  (function () {
             `;
             const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
             gl.shaderSource(fragmentShader, fragmentShaderSrc);
-            gl.compileShader(fragmentShader);            
+            gl.compileShader(fragmentShader);
 
             gl.attachShader(shprog, vertexShader);
             gl.attachShader(shprog, fragmentShader);
@@ -277,7 +282,7 @@ const CanvasImageTransformer =  (function () {
             gl.uniform1f(shprog.uSceneWidth, gl.viewportWidth);
             gl.uniform1f(shprog.uSceneHeight, gl.viewportHeight);
 
-            gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);            
+            gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
             return glCanvas;
         },
