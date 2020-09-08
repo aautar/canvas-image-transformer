@@ -255,7 +255,8 @@ const CanvasImageTransformer =  (function () {
             shprog.textureCoordAttribute = gl.getAttribLocation(shprog, "aTextureCoord");
             shprog.uPeriod = gl.getUniformLocation(shprog, "uPeriod");
             shprog.uSceneWidth = gl.getUniformLocation(shprog, "uSceneWidth");
-            shprog.uSceneHeight = gl.getUniformLocation(shprog, "uSceneHeight");            
+            shprog.uSceneHeight = gl.getUniformLocation(shprog, "uSceneHeight");
+            shprog.uSampler = gl.getUniformLocation(shprog, "uSampler");
             gl.enableVertexAttribArray(shprog.vertexPositionAttribute);
             gl.enableVertexAttribArray(shprog.textureCoordAttribute);
 
@@ -286,6 +287,7 @@ const CanvasImageTransformer =  (function () {
             gl.uniform1f(shprog.uPeriod, period + 1.0);
             gl.uniform1f(shprog.uSceneWidth, gl.viewportWidth);
             gl.uniform1f(shprog.uSceneHeight, gl.viewportHeight);
+            gl.uniform1i(shprog.uSampler, 0);
 
             gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
