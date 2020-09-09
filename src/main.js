@@ -97,10 +97,10 @@ const CanvasImageTransformer =  (function () {
                 {}
             }
 
-            var canvas = document.createElement('canvas');
+            const canvas = document.createElement('canvas');
             canvas.width = newWidth;
             canvas.height = newHeight;
-            var canvasCtx = canvas.getContext('2d');
+            const canvasCtx = canvas.getContext('2d');
 
             canvasCtx.drawImage(img, 0, 0, newWidth, newHeight);
             return canvas;
@@ -126,13 +126,163 @@ const CanvasImageTransformer =  (function () {
                 {}
             }
 
-            var canvas = document.createElement('canvas');
+            const canvas = document.createElement('canvas');
             canvas.width = newWidth;
             canvas.height = newHeight;
-            var canvasCtx = canvas.getContext('2d');
+            const canvasCtx = canvas.getContext('2d');
 
             canvasCtx.drawImage(video, 0, 0, newWidth, newHeight);
             return canvas;
+        },
+
+        applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
+            const glCanvas = document.createElement('canvas');
+            glCanvas.width = srcCanvas.width;
+            glCanvas.height = srcCanvas.height;
+            let gl = glCanvas.getContext('webgl2');
+
+            if(!gl) { // fallback to WebGL 1
+                gl = glCanvas.getContext('webgl');
+            }
+
+            if(!gl) { // no WebGL support
+                throw "Browser does not support WebGL"
+            }
+
+            gl.viewport(0, 0, srcCanvas.width, srcCanvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            const mdl = {};
+            mdl.verts = [ 
+                -1.0,  1.0,  0.0,
+                -1.0, -1.0,  0.0,
+                 1.0, -1.0,  0.0,
+                 1.0,  1.0,  0.0
+            ];
+            mdl.normals = [];
+            mdl.indices = [0, 1, 3, 2];            
+            mdl.texcoords = [
+                 0.0, 0.0,
+                 0.0, 1.0,
+                 1.0, 1.0,
+                 1.0, 0.0
+            ];
+
+            mdl.vertexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.vertexBuffer);                        
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mdl.verts), gl.STATIC_DRAW);
+            mdl.vertexBuffer.itemSize = 3;
+            mdl.vertexBuffer.numItems = mdl.verts.length / 3;
+        
+            mdl.indexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mdl.indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mdl.indices), gl.STATIC_DRAW);
+            mdl.indexBuffer.itemSize = 1;
+            mdl.indexBuffer.numItems = mdl.indices.length;		
+        
+            mdl.texcoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.texcoordBuffer);                        
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mdl.texcoords), gl.STATIC_DRAW);
+            mdl.texcoordBuffer.itemSize = 2;
+            mdl.texcoordBuffer.numItems = mdl.texcoords.length / 2;			           
+            
+            // mat4.ortho(pMatrix, -1, 1, -1, 1, 0.1, -100);
+            const pMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.019980020821094513, 0, -0, -0, -0.9980019927024841, 1]);
+
+            // mat4.lookAt(mvMatrix, vec3.clone([0, 0, 0]), vec3.clone([0, 0, -1]), vec3.clone([0, 1, 0]));
+            const mvMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0, -0, -0, 1]);
+            
+            const shprog = gl.createProgram();
+
+            const vertexShaderSrc = `
+                attribute vec3 aVertexPosition;
+                attribute vec2 aTextureCoord;
+                uniform mat4 uMVMatrix;
+                uniform mat4 uPMatrix;
+                varying vec2 vTextureCoord;
+                
+                void main(void) {
+                    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+                    vTextureCoord = aTextureCoord;
+                }            
+            `;
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, vertexShaderSrc);
+            gl.compileShader(vertexShader);
+
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, fragmentShaderSrc);
+            gl.compileShader(fragmentShader);
+
+            gl.attachShader(shprog, vertexShader);
+            gl.attachShader(shprog, fragmentShader);
+            gl.linkProgram(shprog);
+
+            shprog.vertexPositionAttribute = gl.getAttribLocation(shprog, "aVertexPosition");
+            shprog.pMatrixUniform = gl.getUniformLocation(shprog, "uPMatrix");
+            shprog.mvMatrixUniform = gl.getUniformLocation(shprog, "uMVMatrix");
+            shprog.textureCoordAttribute = gl.getAttribLocation(shprog, "aTextureCoord");
+
+            gl.enableVertexAttribArray(shprog.vertexPositionAttribute);
+            gl.enableVertexAttribArray(shprog.textureCoordAttribute);
+
+            const tex = gl.createTexture();
+            gl.useProgram(shprog);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcCanvas);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            
+            gl.uniform1i(shprog.samplerUniform, 0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.vertexBuffer);
+            gl.vertexAttribPointer(shprog.vertexPositionAttribute, mdl.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.texcoordBuffer);
+            gl.vertexAttribPointer(shprog.textureCoordAttribute, mdl.texcoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+            gl.uniformMatrix4fv(shprog.pMatrixUniform, false, pMatrix);
+            gl.uniformMatrix4fv(shprog.mvMatrixUniform, false, mvMatrix);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mdl.indexBuffer);
+
+            gl.uniform1f(gl.getUniformLocation(shprog, "uSceneWidth"), gl.viewportWidth);
+            gl.uniform1f(gl.getUniformLocation(shprog, "uSceneHeight"), gl.viewportHeight);
+            gl.uniform1i(gl.getUniformLocation(shprog, "uSampler"), 0);
+            
+            for(let i=0; i<additionalShaderVars.length; i++) {
+                if(additionalShaderVars[i].type === '1f') {
+                    gl.uniform1f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x);
+                } else if(additionalShaderVars[i].type === '1i') {
+                    gl.uniform1i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x);
+                } else if(additionalShaderVars[i].type === '2f') {
+                    gl.uniform2f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y);
+                } else if(additionalShaderVars[i].type === '2i') {
+                    gl.uniform2i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y);
+                } else if(additionalShaderVars[i].type === '3f') {
+                    gl.uniform3f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z);
+                } else if(additionalShaderVars[i].type === '3i') {
+                    gl.uniform3i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z);
+                } else if(additionalShaderVars[i].type === '4f') {
+                    gl.uniform4f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z, additionalShaderVars[i].w);
+                } else if(additionalShaderVars[i].type === '4i') {
+                    gl.uniform4i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z, additionalShaderVars[i].w);
+                } else {
+                    throw "Invalid shader var specified";
+                }
+            }
+
+            gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+            // for consistency with other apply* methods, we mutate srcCanvas with the output and return it
+            const srcCtx = srcCanvas.getContext('2d');
+            srcCtx.drawImage(glCanvas, 0, 0, srcCanvas.width, srcCanvas.height);
+
+            return srcCanvas;
         },
 
         /**
