@@ -135,7 +135,7 @@ const CanvasImageTransformer =  (function () {
             return canvas;
         },
 
-        toWebGLCanvas: function(srcCanvas) {
+        applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
             const glCanvas = document.createElement('canvas');
             glCanvas.width = srcCanvas.width;
             glCanvas.height = srcCanvas.height;
@@ -211,36 +211,6 @@ const CanvasImageTransformer =  (function () {
             gl.shaderSource(vertexShader, vertexShaderSrc);
             gl.compileShader(vertexShader);
 
-            const fragmentShaderSrc = `
-                precision mediump float;
-
-                // templatize this portion
-                uniform float uPeriod;
-                uniform float uSceneWidth;
-                uniform float uSceneHeight;
-                uniform sampler2D uSampler;
-                //
-
-                varying vec2 vTextureCoord;
-                
-                void main(void) {
-                    // this is inject by caller
-                    vec4 shiftedSampleLeft = vec4( 0. );
-                    vec4 shiftedSampleRight = vec4( 0. );
-
-                    float blurSampleOffsetScale = 2.1;
-                    float px = (1.0 / uSceneWidth) * blurSampleOffsetScale;
-                    float py = (1.0 / uSceneHeight) * blurSampleOffsetScale;
-                
-                    vec4 src = texture2D( uSampler, ( vTextureCoord ) );
-                
-                    shiftedSampleLeft = texture2D( uSampler, ( vTextureCoord + vec2(-0.01525, 0) ) );
-                    shiftedSampleRight = texture2D( uSampler, ( vTextureCoord + vec2(0.01525, 0) ) );
-                
-                    gl_FragColor = src * vec4(1, shiftedSampleLeft.g, 1, 1) * vec4(shiftedSampleRight.r, 1, 1, 1);
-                    //
-                }
-            `;
             const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
             gl.shaderSource(fragmentShader, fragmentShaderSrc);
             gl.compileShader(fragmentShader);
@@ -253,10 +223,7 @@ const CanvasImageTransformer =  (function () {
             shprog.pMatrixUniform = gl.getUniformLocation(shprog, "uPMatrix");
             shprog.mvMatrixUniform = gl.getUniformLocation(shprog, "uMVMatrix");
             shprog.textureCoordAttribute = gl.getAttribLocation(shprog, "aTextureCoord");
-            shprog.uPeriod = gl.getUniformLocation(shprog, "uPeriod");
-            shprog.uSceneWidth = gl.getUniformLocation(shprog, "uSceneWidth");
-            shprog.uSceneHeight = gl.getUniformLocation(shprog, "uSceneHeight");
-            shprog.uSampler = gl.getUniformLocation(shprog, "uSampler");
+
             gl.enableVertexAttribArray(shprog.vertexPositionAttribute);
             gl.enableVertexAttribArray(shprog.textureCoordAttribute);
 
@@ -283,15 +250,39 @@ const CanvasImageTransformer =  (function () {
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mdl.indexBuffer);
 
-            var period = Math.cos(0.2);
-            gl.uniform1f(shprog.uPeriod, period + 1.0);
-            gl.uniform1f(shprog.uSceneWidth, gl.viewportWidth);
-            gl.uniform1f(shprog.uSceneHeight, gl.viewportHeight);
-            gl.uniform1i(shprog.uSampler, 0);
+            gl.uniform1f(gl.getUniformLocation(shprog, "uSceneWidth"), gl.viewportWidth);
+            gl.uniform1f(gl.getUniformLocation(shprog, "uSceneHeight"), gl.viewportHeight);
+            gl.uniform1i(gl.getUniformLocation(shprog, "uSampler"), 0);
+            
+            for(let i=0; i<additionalShaderVars.length; i++) {
+                if(additionalShaderVars[i].type === '1f') {
+                    gl.uniform1f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x);
+                } else if(additionalShaderVars[i].type === '1i') {
+                    gl.uniform1i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x);
+                } else if(additionalShaderVars[i].type === '2f') {
+                    gl.uniform2f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y);
+                } else if(additionalShaderVars[i].type === '2i') {
+                    gl.uniform2i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y);
+                } else if(additionalShaderVars[i].type === '3f') {
+                    gl.uniform3f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z);
+                } else if(additionalShaderVars[i].type === '3i') {
+                    gl.uniform3i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z);
+                } else if(additionalShaderVars[i].type === '4f') {
+                    gl.uniform4f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z, additionalShaderVars[i].w);
+                } else if(additionalShaderVars[i].type === '4i') {
+                    gl.uniform4i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z, additionalShaderVars[i].w);
+                } else {
+                    throw "Invalid shader var specified";
+                }
+            }
 
             gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
-            return glCanvas;
+            // for consistency with other apply* methods, we mutate srcCanvas with the output and return it
+            const srcCtx = srcCanvas.getContext('2d');
+            srcCtx.drawImage(glCanvas, 0, 0, srcCanvas.width, srcCanvas.height);
+
+            return srcCanvas;
         },
 
         /**

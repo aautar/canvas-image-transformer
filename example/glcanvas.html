@@ -8,14 +8,53 @@
     <script type="text/javascript">
 
         /**
-            CanvasImageTransformer.imageToCanvas() example
-            Also showing how to use method to perform resize transformation
+            CanvasImageTransformer.applyGLSLFragmentShader() example
         */
         const img = new Image();
         img.onload = function() {
             const imgOnCanvas = CanvasImageTransformer.imageToCanvas(img, 300, 300, true);
 
-            const glCanvas = CanvasImageTransformer.toWebGLCanvas(imgOnCanvas);
+            const fragmentShaderSrc = `
+                precision mediump float;
+
+                uniform sampler2D uSampler;
+                varying vec2 vTextureCoord;
+                uniform vec2 uShiftLeft;
+                uniform vec2 uShiftRight;
+                
+                void main(void) {
+                    vec4 src = texture2D( uSampler, ( vTextureCoord ) );
+                
+                    vec4 shiftedSampleLeft = texture2D( uSampler, ( vTextureCoord + uShiftLeft) );
+                    vec4 shiftedSampleRight = texture2D( uSampler, ( vTextureCoord + uShiftRight ) );
+                
+                    gl_FragColor = src * vec4(1, shiftedSampleLeft.g, 1, 1) * vec4(shiftedSampleRight.r, 1, 1, 1);
+                }
+            `;
+
+            const glCanvas = CanvasImageTransformer.applyGLSLFragmentShader(
+                imgOnCanvas,
+                fragmentShaderSrc,
+                [
+                    {
+                        name: "uPeriod",
+                        type: "1f",
+                        x: 1.0
+                    },
+                    {
+                        name: "uShiftLeft",
+                        type: "2f",
+                        x: -0.01525,
+                        y: 0
+                    },
+                    {
+                        name: "uShiftRight",
+                        type: "2f",
+                        x: 0.01525,
+                        y: 0
+                    },
+                ]
+            );
 
             const docImg = document.getElementById('testImage');
             docImg.src = glCanvas.toDataURL();            
