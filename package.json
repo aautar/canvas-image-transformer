@@ -5,6 +5,7 @@
   "main": "src/main.js",
   "repository": "https://github.com/aautar/canvas-image-transformer.git",
   "author": "Avishkar Autar <aautar@digital-radiation.com>",
+  "keywords": ["canvas", "graphics", "webgl", "image", "frontend"],
   "license": "MIT",
   "devDependencies": {
     "babel-minify": "^0.5.1"
