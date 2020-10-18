@@ -33,7 +33,7 @@
             let uniformOffset = 0.01525;
             let dir = 1.0;
 
-            setInterval(function() {
+            const render = function() {
                 const srcCanvas = CanvasImageTransformer.imageToCanvas(img, 300, 300, true);
 
                 const glCanvas = CanvasImageTransformer.applyGLSLFragmentShader(
@@ -75,7 +75,10 @@
                     dir = 1.0;
                 }
 
-            }, 16.666);
+                requestAnimationFrame(render);
+            };
+
+            requestAnimationFrame(render);
         };
         
 		/**
