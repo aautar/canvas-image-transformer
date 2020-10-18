@@ -1,4 +1,9 @@
 const CanvasImageTransformer =  (function () {
+    /**
+     * GL Canvas for shader operations
+     */
+    const glCanvas = document.createElement('canvas');
+
     const _colorToRGBA = function(color) {
         return [
             color >> 24 & 0xFF,
@@ -136,7 +141,6 @@ const CanvasImageTransformer =  (function () {
         },
 
         applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
-            const glCanvas = document.createElement('canvas');
             glCanvas.width = srcCanvas.width;
             glCanvas.height = srcCanvas.height;
             let gl = glCanvas.getContext('webgl2');
