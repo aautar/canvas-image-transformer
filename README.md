@@ -1,5 +1,21 @@
 # canvas-image-transformer
 
+### Install
+
+    npm install canvas-image-transformer
+
+### Usage
+
+#### CommonJS
+Refrence as a CommonJS module:
+
+    const CanvasImageTransformer = require('canvas-image-transformer');
+
+#### Standalone Script
+The component is available in a minified, standalone script (`dist/canvas-image-transformer.min.js`). This script can be used directly in any modern browser or tool that does pre-processing on frontend components.
+
+The `CanvasImageTransformer` object will be added to the global namespace.
+
 ### Image to Canvas
 
     const canvas = CanvasImageTransformer.imageToCanvas(img, 100, 100, true);
