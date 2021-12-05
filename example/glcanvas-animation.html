@@ -32,14 +32,33 @@
 
             let uniformOffset = 0.01525;
             let dir = 1.0;
+            let time0 = performance.now();
+            let elapsedTime = 0;
 
-            const render = function() {
-                const srcCanvas = CanvasImageTransformer.imageToCanvas(img, 300, 300, true);
+            const srcCanvas = CanvasImageTransformer.imageToCanvas(img, 300, 300, true);
 
-                const glCanvas = CanvasImageTransformer.applyGLSLFragmentShader(
-                    srcCanvas,
-                    fragmentShaderSrc,
-                    [
+            const glCanvas = CanvasImageTransformer.genGLSLFragmentShaderAnimation(
+                srcCanvas,
+                fragmentShaderSrc,
+                (_t) => {
+                    elapsedTime += performance.now() - time0;
+                    let inc = 0;
+                    if(elapsedTime >= 16.7) {
+                        elapsedTime = 0;
+                        time0 = performance.now();
+                        inc = 0.0017 * dir;
+                    }
+
+                    uniformOffset += inc;
+                    if(uniformOffset > 0.05) {
+                        dir = -1.0;
+                    }
+
+                    if(uniformOffset <= 0.0001) {
+                        dir = 1.0;
+                    }
+
+                    return [
                         {
                             name: "uPeriod",
                             type: "1f",
@@ -57,28 +76,11 @@
                             x: uniformOffset,
                             y: 0
                         },
-                    ]
-                );
-
-                const targetCanvas = document.getElementById('testImage');
-                targetCanvas.width = glCanvas.width;
-                targetCanvas.height = glCanvas.height;
-                const targetCanvasCtx = targetCanvas.getContext('2d');
-                targetCanvasCtx.drawImage(glCanvas, 0, 0);
-
-                uniformOffset += 0.003 * dir;
-                if(uniformOffset > 0.05) {
-                    dir = -1.0;
+                    ];
                 }
+            );
 
-                if(uniformOffset <= 0.0001) {
-                    dir = 1.0;
-                }
-
-                requestAnimationFrame(render);
-            };
-
-            requestAnimationFrame(render);
+            document.body.appendChild(glCanvas);
         };
         
 		/**

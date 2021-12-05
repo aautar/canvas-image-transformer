@@ -1,9 +1,9 @@
 const CanvasImageTransformer =  (function () {
     /**
-     * GL Canvas for shader operations
+     * 
+     * @param {Number} color 
+     * @returns {Number[]}
      */
-    const glCanvas = document.createElement('canvas');
-
     const _colorToRGBA = function(color) {
         return [
             color >> 24 & 0xFF,
@@ -33,7 +33,7 @@ const CanvasImageTransformer =  (function () {
      * @param {Number} _x 
      * @param {Number} _y 
      * 
-     * @returns {Array}
+     * @returns {Number[]}
      */
     const _lookupPixelf = function(_pixelArr, _width, _x, _y) {
         const idx = (_x + _y * _width) * 4;
@@ -42,7 +42,7 @@ const CanvasImageTransformer =  (function () {
 
     /**
      * 
-     * @param {Array} _matrixArray 
+     * @param {Number[]} _matrixArray 
      * @param {Number} _width
      * @returns {Kernel}
      */    
@@ -59,7 +59,7 @@ const CanvasImageTransformer =  (function () {
     return {
         /**
          * @param {Number} color
-         * @returns {Array}
+         * @returns {Number[]}
          */
         colorToRGBA: _colorToRGBA,
 
@@ -88,7 +88,7 @@ const CanvasImageTransformer =  (function () {
         * @param {Number} newWidth
         * @param {Number} newHeight
         * @param {Boolean} proportionalScale
-        * @returns {Canvas}
+        * @returns {HTMLCanvasElement}
         */
         imageToCanvas: function(img, newWidth, newHeight, proportionalScale) {
             if(proportionalScale) {
@@ -117,7 +117,7 @@ const CanvasImageTransformer =  (function () {
         * @param {Number} newWidth
         * @param {Number} newHeight
         * @param {Boolean} proportionalScale
-        * @returns {Canvas}
+        * @returns {HTMLCanvasElement}
         */
         videoFrameToCanvas: function(video, newWidth, newHeight, proportionalScale) {
             if(proportionalScale) {
@@ -140,23 +140,85 @@ const CanvasImageTransformer =  (function () {
             return canvas;
         },
 
-        applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
-            glCanvas.width = srcCanvas.width;
-            glCanvas.height = srcCanvas.height;
-            let gl = glCanvas.getContext('webgl2');
-
-            if(!gl) { // fallback to WebGL 1
-                gl = glCanvas.getContext('webgl');
+        /**
+         * 
+         * @param {WebGL2RenderingContext} _gl 
+         * @param {*} _shprog 
+         * @param {Object[]} _additionalShaderVars 
+         */
+        _setAdditionalShaderVars: function(_gl, _shprog, _additionalShaderVars) {
+            for(let i=0; i<_additionalShaderVars.length; i++) {
+                const shVar = _additionalShaderVars[i];
+                if(shVar.type === '1f') {
+                    _gl.uniform1f(_gl.getUniformLocation(_shprog, shVar.name), shVar.x);
+                } else if(shVar.type === '1i') {
+                    _gl.uniform1i(_gl.getUniformLocation(_shprog, shVar.name), shVar.x);
+                } else if(shVar.type === '2f') {
+                    _gl.uniform2f(_gl.getUniformLocation(_shprog, shVar.name), shVar.x, shVar.y);
+                } else if(shVar.type === '2i') {
+                    _gl.uniform2i(_gl.getUniformLocation(_shprog, shVar.name), shVar.x, shVar.y);
+                } else if(shVar.type === '3f') {
+                    _gl.uniform3f(_gl.getUniformLocation(_shprog, shVar.name), shVar.x, shVar.y, shVar.z);
+                } else if(shVar.type === '3i') {
+                    _gl.uniform3i(_gl.getUniformLocation(_shprog, shVar.name), shVar.x, shVar.y, shVar.z);
+                } else if(shVar.type === '4f') {
+                    _gl.uniform4f(_gl.getUniformLocation(_shprog, shVar.name), shVar.x, shVar.y, shVar.z, shVar.w);
+                } else if(shVar.type === '4i') {
+                    _gl.uniform4i(_gl.getUniformLocation(_shprog, shVar.name), shVar.x, shVar.y, shVar.z, shVar.w);
+                } else {
+                    throw "Invalid shader var specified";
+                }
             }
+        },
 
-            if(!gl) { // no WebGL support
-                throw "Browser does not support WebGL"
-            }
+        /**
+         * 
+         * @param {WebGL2RenderingContext} _gl 
+         * @param {String} _fragmentShaderSrc 
+         * @returns {WebGLProgram}
+         */
+        _createShaderProgram: function(_gl, _fragmentShaderSrc) {
+            const shprog = _gl.createProgram();
 
-            gl.viewport(0, 0, srcCanvas.width, srcCanvas.height);
-            gl.clearColor(0.0, 0.0, 0.0, 0.0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
+            const vertexShaderSrc = `
+                attribute vec3 aVertexPosition;
+                attribute vec2 aTextureCoord;
+                uniform mat4 uMVMatrix;
+                uniform mat4 uPMatrix;
+                varying vec2 vTextureCoord;
+                
+                void main(void) {
+                    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+                    vTextureCoord = aTextureCoord;
+                }            
+            `;
 
+            const vertexShader = _gl.createShader(_gl.VERTEX_SHADER);
+            _gl.shaderSource(vertexShader, vertexShaderSrc);
+            _gl.compileShader(vertexShader);
+
+            const fragmentShader = _gl.createShader(_gl.FRAGMENT_SHADER);
+            _gl.shaderSource(fragmentShader, _fragmentShaderSrc);
+            _gl.compileShader(fragmentShader);
+
+            _gl.attachShader(shprog, vertexShader);
+            _gl.attachShader(shprog, fragmentShader);
+            _gl.linkProgram(shprog);
+
+            shprog.vertexPositionAttribute = _gl.getAttribLocation(shprog, "aVertexPosition");
+            shprog.pMatrixUniform = _gl.getUniformLocation(shprog, "uPMatrix");
+            shprog.mvMatrixUniform = _gl.getUniformLocation(shprog, "uMVMatrix");
+            shprog.textureCoordAttribute = _gl.getAttribLocation(shprog, "aTextureCoord");
+
+            return shprog;
+        },
+
+        /**
+         * 
+         * @param {WebGL2RenderingContext} _gl 
+         * @returns {Object}
+         */
+        _createRectangleGLModel: function(_gl) {
             const mdl = {};
             mdl.verts = [ 
                 -1.0,  1.0,  0.0,
@@ -173,23 +235,53 @@ const CanvasImageTransformer =  (function () {
                  1.0, 0.0
             ];
 
-            mdl.vertexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.vertexBuffer);                        
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mdl.verts), gl.STATIC_DRAW);
+            mdl.vertexBuffer = _gl.createBuffer();
+            _gl.bindBuffer(_gl.ARRAY_BUFFER, mdl.vertexBuffer);                        
+            _gl.bufferData(_gl.ARRAY_BUFFER, new Float32Array(mdl.verts), _gl.STATIC_DRAW);
             mdl.vertexBuffer.itemSize = 3;
             mdl.vertexBuffer.numItems = mdl.verts.length / 3;
         
-            mdl.indexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mdl.indexBuffer);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mdl.indices), gl.STATIC_DRAW);
+            mdl.indexBuffer = _gl.createBuffer();
+            _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, mdl.indexBuffer);
+            _gl.bufferData(_gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mdl.indices), _gl.STATIC_DRAW);
             mdl.indexBuffer.itemSize = 1;
             mdl.indexBuffer.numItems = mdl.indices.length;		
         
-            mdl.texcoordBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.texcoordBuffer);                        
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mdl.texcoords), gl.STATIC_DRAW);
+            mdl.texcoordBuffer = _gl.createBuffer();
+            _gl.bindBuffer(_gl.ARRAY_BUFFER, mdl.texcoordBuffer);                        
+            _gl.bufferData(_gl.ARRAY_BUFFER, new Float32Array(mdl.texcoords), _gl.STATIC_DRAW);
             mdl.texcoordBuffer.itemSize = 2;
-            mdl.texcoordBuffer.numItems = mdl.texcoords.length / 2;			           
+            mdl.texcoordBuffer.numItems = mdl.texcoords.length / 2;
+
+            return mdl;
+        },
+
+        /**
+         * 
+         * @param {HTMLCanvasElement} srcCanvas 
+         * @param {String} fragmentShaderSrc 
+         * @param {Object[]} additionalShaderVars 
+         * @returns {HTMLCanvasElement}
+         */
+        applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
+            const glCanvas = document.createElement('canvas');
+            glCanvas.width = srcCanvas.width;
+            glCanvas.height = srcCanvas.height;
+            let gl = glCanvas.getContext('webgl2');
+
+            if(!gl) { // fallback to WebGL 1
+                gl = glCanvas.getContext('webgl');
+            }
+
+            if(!gl) { // no WebGL support
+                throw "Browser does not support WebGL"
+            }
+
+            gl.viewport(0, 0, srcCanvas.width, srcCanvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            const mdl = this._createRectangleGLModel(gl);		           
             
             // mat4.ortho(pMatrix, -1, 1, -1, 1, 0.1, -100);
             const pMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.019980020821094513, 0, -0, -0, -0.9980019927024841, 1]);
@@ -197,36 +289,7 @@ const CanvasImageTransformer =  (function () {
             // mat4.lookAt(mvMatrix, vec3.clone([0, 0, 0]), vec3.clone([0, 0, -1]), vec3.clone([0, 1, 0]));
             const mvMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0, -0, -0, 1]);
             
-            const shprog = gl.createProgram();
-
-            const vertexShaderSrc = `
-                attribute vec3 aVertexPosition;
-                attribute vec2 aTextureCoord;
-                uniform mat4 uMVMatrix;
-                uniform mat4 uPMatrix;
-                varying vec2 vTextureCoord;
-                
-                void main(void) {
-                    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-                    vTextureCoord = aTextureCoord;
-                }            
-            `;
-            const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-            gl.shaderSource(vertexShader, vertexShaderSrc);
-            gl.compileShader(vertexShader);
-
-            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-            gl.shaderSource(fragmentShader, fragmentShaderSrc);
-            gl.compileShader(fragmentShader);
-
-            gl.attachShader(shprog, vertexShader);
-            gl.attachShader(shprog, fragmentShader);
-            gl.linkProgram(shprog);
-
-            shprog.vertexPositionAttribute = gl.getAttribLocation(shprog, "aVertexPosition");
-            shprog.pMatrixUniform = gl.getUniformLocation(shprog, "uPMatrix");
-            shprog.mvMatrixUniform = gl.getUniformLocation(shprog, "uMVMatrix");
-            shprog.textureCoordAttribute = gl.getAttribLocation(shprog, "aTextureCoord");
+            const shprog = this._createShaderProgram(gl, fragmentShaderSrc);
 
             gl.enableVertexAttribArray(shprog.vertexPositionAttribute);
             gl.enableVertexAttribArray(shprog.textureCoordAttribute);
@@ -258,27 +321,7 @@ const CanvasImageTransformer =  (function () {
             gl.uniform1f(gl.getUniformLocation(shprog, "uSceneHeight"), gl.viewportHeight);
             gl.uniform1i(gl.getUniformLocation(shprog, "uSampler"), 0);
             
-            for(let i=0; i<additionalShaderVars.length; i++) {
-                if(additionalShaderVars[i].type === '1f') {
-                    gl.uniform1f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x);
-                } else if(additionalShaderVars[i].type === '1i') {
-                    gl.uniform1i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x);
-                } else if(additionalShaderVars[i].type === '2f') {
-                    gl.uniform2f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y);
-                } else if(additionalShaderVars[i].type === '2i') {
-                    gl.uniform2i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y);
-                } else if(additionalShaderVars[i].type === '3f') {
-                    gl.uniform3f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z);
-                } else if(additionalShaderVars[i].type === '3i') {
-                    gl.uniform3i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z);
-                } else if(additionalShaderVars[i].type === '4f') {
-                    gl.uniform4f(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z, additionalShaderVars[i].w);
-                } else if(additionalShaderVars[i].type === '4i') {
-                    gl.uniform4i(gl.getUniformLocation(shprog, additionalShaderVars[i].name), additionalShaderVars[i].x, additionalShaderVars[i].y, additionalShaderVars[i].z, additionalShaderVars[i].w);
-                } else {
-                    throw "Invalid shader var specified";
-                }
-            }
+            this._setAdditionalShaderVars(gl, shprog, additionalShaderVars);
 
             gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
@@ -290,9 +333,87 @@ const CanvasImageTransformer =  (function () {
         },
 
         /**
-         * @param {Canvas} canvas
+         * 
+         * @param {HTMLCanvasElement} srcCanvas 
+         * @param {String} fragmentShaderSrc 
+         * @param {Function} additionalShaderVars 
+         * @returns {HTMLCanvasElement}
+         */
+        genGLSLFragmentShaderAnimation: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
+            const glCanvas = document.createElement('canvas');
+
+            glCanvas.width = srcCanvas.width;
+            glCanvas.height = srcCanvas.height;
+            let gl = glCanvas.getContext('webgl2');
+
+            if(!gl) { // fallback to WebGL 1
+                gl = glCanvas.getContext('webgl');
+            }
+
+            if(!gl) { // no WebGL support
+                throw "Browser does not support WebGL"
+            }
+
+            gl.viewport(0, 0, srcCanvas.width, srcCanvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            const mdl = this._createRectangleGLModel(gl);		           
+            
+            // mat4.ortho(pMatrix, -1, 1, -1, 1, 0.1, -100);
+            const pMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.019980020821094513, 0, -0, -0, -0.9980019927024841, 1]);
+
+            // mat4.lookAt(mvMatrix, vec3.clone([0, 0, 0]), vec3.clone([0, 0, -1]), vec3.clone([0, 1, 0]));
+            const mvMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0, -0, -0, 1]);
+            
+            const shprog = this._createShaderProgram(gl, fragmentShaderSrc);
+
+            gl.enableVertexAttribArray(shprog.vertexPositionAttribute);
+            gl.enableVertexAttribArray(shprog.textureCoordAttribute);
+
+            const tex = gl.createTexture();
+            gl.useProgram(shprog);
+            
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcCanvas);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            
+            gl.uniform1i(shprog.samplerUniform, 0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.vertexBuffer);
+            gl.vertexAttribPointer(shprog.vertexPositionAttribute, mdl.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, mdl.texcoordBuffer);
+            gl.vertexAttribPointer(shprog.textureCoordAttribute, mdl.texcoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+            gl.uniformMatrix4fv(shprog.pMatrixUniform, false, pMatrix);
+            gl.uniformMatrix4fv(shprog.mvMatrixUniform, false, mvMatrix);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mdl.indexBuffer);
+
+            gl.uniform1f(gl.getUniformLocation(shprog, "uSceneWidth"), gl.viewportWidth);
+            gl.uniform1f(gl.getUniformLocation(shprog, "uSceneHeight"), gl.viewportHeight);
+            gl.uniform1i(gl.getUniformLocation(shprog, "uSampler"), 0);
+            
+            const animate = function(_timestamp) {
+                CanvasImageTransformer._setAdditionalShaderVars(gl, shprog, additionalShaderVars(_timestamp));
+                gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+                requestAnimationFrame(animate);
+            };
+
+            requestAnimationFrame(animate);
+
+            return glCanvas;
+        },
+
+
+        /**
+         * @param {HTMLCanvasElement} canvas
          * @param {Kernel} kernel
-         * @returns {Canvas}
+         * @returns {HTMLCanvasElement}
          */
         applyKernel: function(canvas, kernel) {
             const canvasCtx = canvas.getContext('2d');
@@ -343,8 +464,8 @@ const CanvasImageTransformer =  (function () {
         },        
 
         /**
-         * @param {Canvas} canvas
-         * @param {Canvas} 
+         * @param {HTMLCanvasElement} canvas
+         * @param {HTMLCanvasElement} 
          */
         toGrayscale: function(canvas) {
             var canvasCtx = canvas.getContext('2d');
@@ -363,8 +484,8 @@ const CanvasImageTransformer =  (function () {
         },
 
         /**
-         * @param {Canvas} canvas
-         * @param {Canvas} 
+         * @param {HTMLCanvasElement} canvas
+         * @param {HTMLCanvasElement} 
          */
         toBlackAndWhite: function(canvas) {
             var canvasCtx = canvas.getContext('2d');
@@ -391,7 +512,7 @@ const CanvasImageTransformer =  (function () {
         },
 
         /**
-         * @param {Canvas} canvas
+         * @param {HTMLCanvasElement} canvas
          * @param {Map} 
          */
         computeColorFrequencyMap: function(canvas) {
