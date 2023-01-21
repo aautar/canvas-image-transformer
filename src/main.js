@@ -143,7 +143,7 @@ const CanvasImageTransformer =  (function () {
         /**
          * 
          * @param {WebGL2RenderingContext} _gl 
-         * @param {*} _shprog 
+         * @param {WebGLProgram} _shprog 
          * @param {Object[]} _additionalShaderVars 
          */
         _setAdditionalShaderVars: function(_gl, _shprog, _additionalShaderVars) {
@@ -261,18 +261,23 @@ const CanvasImageTransformer =  (function () {
          * @param {HTMLCanvasElement} srcCanvas 
          * @param {String} fragmentShaderSrc 
          * @param {Object[]} additionalShaderVars 
+         * @param {Map} metricsMap
          * @returns {HTMLCanvasElement}
          */
-        applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
+        applyGLSLFragmentShader: function(srcCanvas, fragmentShaderSrc, additionalShaderVars, metricsMap) {
             const glCanvas = document.createElement('canvas');
+           
             glCanvas.width = srcCanvas.width;
             glCanvas.height = srcCanvas.height;
+
+
             let gl = glCanvas.getContext('webgl2');
+ 
 
             if(!gl) { // fallback to WebGL 1
                 gl = glCanvas.getContext('webgl');
             }
-
+           
             if(!gl) { // no WebGL support
                 throw "Browser does not support WebGL"
             }
@@ -281,25 +286,36 @@ const CanvasImageTransformer =  (function () {
             gl.clearColor(0.0, 0.0, 0.0, 0.0);
             gl.clear(gl.COLOR_BUFFER_BIT);
 
+
+            const createRectangleGLModelT1 = performance.now();
             const mdl = this._createRectangleGLModel(gl);		           
+            (metricsMap.get("createRectangleGLModel")).push(performance.now() - createRectangleGLModelT1);
             
             // mat4.ortho(pMatrix, -1, 1, -1, 1, 0.1, -100);
             const pMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0.019980020821094513, 0, -0, -0, -0.9980019927024841, 1]);
 
             // mat4.lookAt(mvMatrix, vec3.clone([0, 0, 0]), vec3.clone([0, 0, -1]), vec3.clone([0, 1, 0]));
             const mvMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0, -0, -0, 1]);
-            
+
+            const createShaderProgramT1 = performance.now();
             const shprog = this._createShaderProgram(gl, fragmentShaderSrc);
+            (metricsMap.get("createShaderProgram")).push(performance.now() - createShaderProgramT1);
 
             gl.enableVertexAttribArray(shprog.vertexPositionAttribute);
             gl.enableVertexAttribArray(shprog.textureCoordAttribute);
 
             const tex = gl.createTexture();
+
             gl.useProgram(shprog);
             
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcCanvas);
+
+
+            const texImage2DT1 = performance.now();
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, srcCanvas); // costly for large images
+            (metricsMap.get("texImage2D")).push(performance.now() - texImage2DT1);
+
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -320,14 +336,18 @@ const CanvasImageTransformer =  (function () {
             gl.uniform1f(gl.getUniformLocation(shprog, "uSceneWidth"), gl.viewportWidth);
             gl.uniform1f(gl.getUniformLocation(shprog, "uSceneHeight"), gl.viewportHeight);
             gl.uniform1i(gl.getUniformLocation(shprog, "uSampler"), 0);
-            
+
             this._setAdditionalShaderVars(gl, shprog, additionalShaderVars);
 
+            const drawElementsT1 = performance.now();
             gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+            (metricsMap.get("drawElements")).push(performance.now() - drawElementsT1);
 
             // for consistency with other apply* methods, we mutate srcCanvas with the output and return it
+            const drawImageT1 = performance.now();
             const srcCtx = srcCanvas.getContext('2d');
             srcCtx.drawImage(glCanvas, 0, 0, srcCanvas.width, srcCanvas.height);
+            (metricsMap.get("drawImage")).push(performance.now() - drawImageT1);
 
             return srcCanvas;
         },
