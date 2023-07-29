@@ -4,7 +4,7 @@ jobs:
     working_directory: ~/repo
     
     docker:
-      - image: circleci/node:10.0.0
+      - image: cimg/node:16.8.0
     environment:
       - NODE_ENV: development      
     steps:
