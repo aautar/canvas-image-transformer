@@ -1,5 +1,14 @@
 const CanvasImageTransformer =  (function () {
     /**
+     * Callback for update to sharder vars on animation frame update
+     *
+     * @callback FrameShaderVarUpdateCallback
+     * @param {DOMHighResTimeStamp} frameExecutionStartTime - point in time when requestAnimationFrame() began to execute callback function
+     * @param {DOMHighResTimeStamp} timeDelta - time since last frame was rendered
+     * @returns {Object[]}
+     */
+
+    /**
      * 
      * @param {Number} color 
      * @returns {Number[]}
@@ -336,10 +345,11 @@ const CanvasImageTransformer =  (function () {
          * 
          * @param {HTMLCanvasElement} srcCanvas 
          * @param {String} fragmentShaderSrc 
-         * @param {Function} additionalShaderVars 
+         * @param {FrameShaderVarUpdateCallback} frameShaderVarUpdateCallback 
          * @returns {HTMLCanvasElement}
          */
-        genGLSLFragmentShaderAnimation: function(srcCanvas, fragmentShaderSrc, additionalShaderVars) {
+        genGLSLFragmentShaderAnimation: function(srcCanvas, fragmentShaderSrc, frameShaderVarUpdateCallback) {
+            let prevFrameEndTime = null;
             const glCanvas = document.createElement('canvas');
 
             glCanvas.width = srcCanvas.width;
@@ -399,9 +409,17 @@ const CanvasImageTransformer =  (function () {
             gl.uniform1i(gl.getUniformLocation(shprog, "uSampler"), 0);
             
             const animate = function(_timestamp) {
-                CanvasImageTransformer._setAdditionalShaderVars(gl, shprog, additionalShaderVars(_timestamp));
+                let timeDelta = 0;
+                if(prevFrameEndTime === null) {
+                    prevFrameEndTime = _timestamp;
+                }
+
+                timeDelta = _timestamp - prevFrameEndTime;
+
+                CanvasImageTransformer._setAdditionalShaderVars(gl, shprog, frameShaderVarUpdateCallback(_timestamp, timeDelta));
                 gl.drawElements(gl.TRIANGLE_STRIP, mdl.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
                 requestAnimationFrame(animate);
+                prevFrameEndTime = _timestamp;
             };
 
             requestAnimationFrame(animate);
